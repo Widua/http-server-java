@@ -30,7 +30,7 @@ public class ClientHandler implements Runnable {
             throw new RuntimeException(e);
         }
 
-        output.println( String.format("%s %s \r\n\r\n",HTTP_VERSION,httpStatus ) );
+        output.println( String.format("%s %s\r\n\r\n",HTTP_VERSION,httpStatus ) );
     }
 
     private Map<String, String> parseRequest() throws IOException {
