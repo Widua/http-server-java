@@ -5,10 +5,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 public class ClientHandler implements Runnable {
-    private final String HTTP_VERSION = "HTTP/1.1";
     private PrintWriter output;
     private BufferedReader input;
 
@@ -18,19 +17,34 @@ public class ClientHandler implements Runnable {
     }
 
     @Override
-    public void run(){
+    public void run() {
         String httpStatus = "200 OK";
+        String httpBody = "";
         System.out.println("accepted new connection");
         try {
-            Map<String,String> request = parseRequest();
-            if (!request.get("Endpoint").equals("/")){
-                httpStatus = "404 Not Found";
+            Map<String, String> request = parseRequest();
+            String endpoint = request.get("Endpoint");
+            switch (endpoint) {
+                case String s when Pattern
+                        .matches("/echo/[A-z0-9]*", s) -> {
+                    httpBody = s.replaceAll("/echo/", "");
+
+                }
+                case "/" -> {
+
+                }
+                default -> {
+                    httpStatus = "404 Not Found";
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        Map<String, String> headers = new HashMap<>();
 
-        output.println( String.format("%s %s\r\n\r\n",HTTP_VERSION,httpStatus ) );
+        ResponseBuilder response = new ResponseBuilder(headers, httpStatus, httpBody);
+
+        output.println(response);
     }
 
     private Map<String, String> parseRequest() throws IOException {
@@ -38,9 +52,9 @@ public class ClientHandler implements Runnable {
 
         String[] header = input.readLine().split(" ");
 
-        request.put("Method",header[0]);
-        request.put("Endpoint",header[1]);
-        request.put("HTTP_VERSION",header[2]);
+        request.put("Method", header[0]);
+        request.put("Endpoint", header[1]);
+        request.put("HTTP_VERSION", header[2]);
 
         return request;
     }
