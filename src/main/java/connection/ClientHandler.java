@@ -3,6 +3,7 @@ package connection;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -33,29 +34,53 @@ public class ClientHandler implements Runnable {
                 case "/" -> {
 
                 }
+                case "/user-agent" ->{
+                    httpBody = request.get("User-Agent");
+                }
                 default -> {
                     httpStatus = "404 Not Found";
                 }
             }
+
+            ResponseBuilder response = new ResponseBuilder(request, httpStatus, httpBody);
+            output.println(response);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        Map<String, String> headers = new HashMap<>();
 
-        ResponseBuilder response = new ResponseBuilder(headers, httpStatus, httpBody);
-
-        output.println(response);
     }
 
     private Map<String, String> parseRequest() throws IOException {
         Map<String, String> request = new HashMap<>();
 
-        String[] header = input.readLine().split(" ");
+        StringBuilder req = new StringBuilder();
+        int s = 0;
+        while (input.ready()){
+            s = input.read();
+            req.append((char)s);
+        }
 
-        request.put("Method", header[0]);
-        request.put("Endpoint", header[1]);
-        request.put("HTTP_VERSION", header[2]);
+        String[] splitted = req.toString().split("\r\n");
 
+        String[] head = splitted[0].split(" ");
+
+        request.put("Method",head[0]);
+        request.put("Endpoint",head[1]);
+        request.put("HTTP_VERSION",head[2]);
+        int eohIndex = 1;
+        for (String header: Arrays.copyOfRange(splitted, 1, splitted.length)) {
+            eohIndex ++;
+            if (header.isEmpty()){
+                break;
+            }
+            String[] headerCon = header.split(": ");
+            request.put(headerCon[0],headerCon[1]);
+        }
+
+        if (eohIndex < splitted.length){
+            request.put("Body",splitted[eohIndex]);
+        }
         return request;
     }
 
