@@ -60,9 +60,12 @@ public class ClientHandler implements Runnable {
             s = input.read();
             req.append((char)s);
         }
-
         String[] splitted = req.toString().split("\r\n");
 
+        if (splitted.length == 1){
+            request.put("Endpoint","/");
+            return request;
+        }
         String[] head = splitted[0].split(" ");
 
         request.put("Method",head[0]);
