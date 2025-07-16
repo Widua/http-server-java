@@ -1,8 +1,13 @@
 package connection;
 
+import configuration.ServerSettings;
+
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +16,8 @@ import java.util.regex.Pattern;
 public class ClientHandler implements Runnable {
     private PrintWriter output;
     private BufferedReader input;
-
+    private ServerSettings settings = ServerSettings.getInstance();
+    ResponseBuilder response = new ResponseBuilder();
     public ClientHandler(PrintWriter output, BufferedReader input) {
         this.output = output;
         this.input = input;
@@ -19,8 +25,6 @@ public class ClientHandler implements Runnable {
 
     @Override
     public void run() {
-        String httpStatus = "200 OK";
-        String httpBody = "";
         System.out.println("accepted new connection");
         try {
             Map<String, String> request = parseRequest();
@@ -28,21 +32,23 @@ public class ClientHandler implements Runnable {
             switch (endpoint) {
                 case String s when Pattern
                         .matches("/echo/[A-z0-9]*", s) -> {
-                    httpBody = s.replaceAll("/echo/", "");
-
+                    response.setBody(s.replaceAll("/echo/",""),"text/plain");
                 }
                 case "/" -> {
 
                 }
+                case String s when Pattern.matches("/files/\\S*",s) -> {
+                    fileStreamer(s.replaceAll("/files/",""));
+                    return;
+                }
                 case "/user-agent" ->{
-                    httpBody = request.get("User-Agent");
+                    response.setBody(request.get("User-Agent"),"text/plain");
                 }
                 default -> {
-                    httpStatus = "404 Not Found";
+                    response.setHttpStatus("404 Not Found");
                 }
             }
 
-            ResponseBuilder response = new ResponseBuilder(request, httpStatus, httpBody);
             output.println(response);
 
         } catch (IOException e) {
@@ -87,4 +93,20 @@ public class ClientHandler implements Runnable {
         return request;
     }
 
+    private void fileStreamer(String fileName) throws IOException {
+        File file = new File(Path.of(settings.getSetting("directory"),fileName).toUri());
+
+        if (file.exists()){
+            byte[] fileContent = Files.readAllBytes(file.toPath());
+            StringBuilder builder = response.getResponseHead();
+            builder.append("Content-Type: application/octet-stream").append("\r\n");
+            builder.append("Content-Length: ").append(fileContent.length).append("\r\n");
+            builder.append("\r\n");
+            builder.append(new String(fileContent));
+            output.println(builder);
+        } else {
+            response.setHttpStatus("404 Not Found");
+            output.println(response);
+        }
+    }
 }

@@ -1,41 +1,54 @@
 package connection;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ResponseBuilder {
-    private Map<String,String> headers;
-    private String httpStatus;
-    private String httpBody;
+    private Map<String, String> headers = new HashMap<>();
+    private String httpStatus = "200 OK";
+    private String httpBody = "";
     private final String HTTP_VERSION = "HTTP/1.1 ";
+    private String httpBodyType;
 
-    public ResponseBuilder(Map<String, String> headers, String httpStatus, String httpBody) {
+    public void setHeaders(Map<String, String> headers) {
         this.headers = headers;
-        this.httpStatus = httpStatus;
-        this.httpBody = httpBody;
-        if (!httpBody.isEmpty()){
-            prepareBodyHeaders();
-        }
     }
 
-    private void prepareBodyHeaders(){
-        headers.put("Content-Type","text/plain");
+    public void setHttpStatus(String httpStatus) {
+        this.httpStatus = httpStatus;
+    }
+
+    public void setBody(String httpBody,String httpBodyType) {
+        this.httpBody = httpBody;
+        this.httpBodyType = httpBodyType;
+        prepareBodyHeaders();
+    }
+
+    private void prepareBodyHeaders() {
+        headers.put("Content-Type", httpBodyType);
         headers.put("Content-Length", String.valueOf(httpBody.length()));
     }
 
     @Override
     public String toString() {
+        StringBuilder builder = getResponseHead();
+        builder.append("\r\n");
+        builder.append(httpBody);
+        return builder.toString();
+    }
+
+    public StringBuilder getResponseHead(){
         StringBuilder builder = new StringBuilder();
         builder.append(HTTP_VERSION);
         builder.append(httpStatus);
         builder.append("\r\n");
         headers.forEach(
-                (k,v) -> {
+                (k, v) -> {
                     builder.append(k).append(": ").append(v).append("\r\n");
                 }
         );
-        builder.append("\r\n");
-        builder.append(httpBody);
 
-        return builder.toString();
+        return builder;
     }
+
 }

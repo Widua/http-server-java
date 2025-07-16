@@ -1,3 +1,4 @@
+import configuration.ServerSettings;
 import connection.ClientHandler;
 
 import java.io.BufferedReader;
@@ -10,6 +11,15 @@ import java.net.Socket;
 public class Main {
     public static void main(String[] args) {
         System.out.println("Logs from your program will appear here!");
+
+        ServerSettings settings = ServerSettings.getInstance();
+
+        for (int j = 0; j < args.length; j++) {
+           if (args[j].equals("--directory")){
+            settings.addSetting("directory",args[j+1]);
+           }
+        }
+        
         try {
             ServerSocket serverSocket = new ServerSocket(4221);
             serverSocket.setReuseAddress(true);
