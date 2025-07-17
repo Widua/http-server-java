@@ -2,10 +2,8 @@ package connection;
 
 import configuration.ServerSettings;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -14,23 +12,28 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class ClientHandler implements Runnable {
-    private PrintWriter output;
-    private BufferedReader input;
-    private ServerSettings settings = ServerSettings.getInstance();
-    Map<String, String> request;
-    ResponseBuilder response = new ResponseBuilder();
+    private final ServerSettings settings = ServerSettings.getInstance();
+    private Map<String, String> request;
+    private ResponseBuilder response;
+    private final Socket client;
 
-    public ClientHandler(PrintWriter output, BufferedReader input) {
-        this.output = output;
-        this.input = input;
+    public ClientHandler(Socket client) {
+        this.client = client;
     }
 
     @Override
     public void run() {
-        System.out.println("accepted new connection");
-        try {
-            while (true) {
-                this.request = parseRequest();
+        System.out.println("accepted new connection: "+Thread.currentThread().getName());
+        try(
+                BufferedWriter output = new BufferedWriter(new OutputStreamWriter(client.getOutputStream()) );
+                BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                ) {
+            while (!client.isClosed()) {
+                this.request = parseRequest(input);
+                if (!request.containsKey("Endpoint")) {
+                    break;
+                }
+                response = new ResponseBuilder();
                 String endpoint = request.get("Endpoint");
                 switch (endpoint) {
                     case String s when Pattern
@@ -56,9 +59,9 @@ public class ClientHandler implements Runnable {
                         response.setHttpStatus("404 Not Found");
                     }
                 }
-
-                output.print(response);
-                if (request.getOrDefault("Connection","").equalsIgnoreCase("close")) {
+                output.write(response.toString());
+                output.flush();
+                if (request.getOrDefault("Connection", "").equalsIgnoreCase("close")) {
                     break;
                 }
             }
@@ -68,38 +71,32 @@ public class ClientHandler implements Runnable {
 
     }
 
-    private Map<String, String> parseRequest() throws IOException {
+    private Map<String, String> parseRequest(BufferedReader input) throws IOException {
         Map<String, String> request = new HashMap<>();
 
-        StringBuilder req = new StringBuilder();
-        int s = 0;
-        while (input.ready()) {
-            s = input.read();
-            req.append((char) s);
-        }
-        String[] splitted = req.toString().split("\r\n");
+        String head = input.readLine();
 
-        if (splitted.length == 1) {
-            request.put("Endpoint", "/");
+        if (head == null){
             return request;
         }
-        String[] head = splitted[0].split(" ");
 
-        request.put("Method", head[0]);
-        request.put("Endpoint", head[1]);
-        request.put("HTTP_VERSION", head[2]);
-        int eohIndex = 1;
-        for (String header : Arrays.copyOfRange(splitted, 1, splitted.length)) {
-            eohIndex++;
-            if (header.isEmpty()) {
-                break;
-            }
-            String[] headerCon = header.split(": ");
-            request.put(headerCon[0], headerCon[1]);
+        String[] headPart = head.split(" ");
+
+        request.put("Method",headPart[0]);
+        request.put("Endpoint",headPart[1]);
+        request.put("HTTP_VERSION",headPart[2]);
+
+        String headerLine;
+        while ( (headerLine = input.readLine()) != null && !headerLine.isEmpty() ){
+            String[] header = headerLine.split(": ");
+            request.put(header[0],header[1]);
         }
 
-        if (eohIndex < splitted.length) {
-            request.put("Body", splitted[eohIndex]);
+        if (request.containsKey("Content-Length")){
+            int contentLength = Integer.parseInt(request.get("Content-Length"));
+            char[] requestBody = new char[contentLength];
+            int read = input.read(requestBody,0,contentLength);
+            request.put("Body",new String(requestBody,0,read));
         }
         return request;
     }
