@@ -6,7 +6,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -18,52 +17,51 @@ public class ClientHandler implements Runnable {
     private PrintWriter output;
     private BufferedReader input;
     private ServerSettings settings = ServerSettings.getInstance();
-    Map<String,String> request;
+    Map<String, String> request;
     ResponseBuilder response = new ResponseBuilder();
 
     public ClientHandler(PrintWriter output, BufferedReader input) {
         this.output = output;
         this.input = input;
-        try {
-            this.request = parseRequest();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
     public void run() {
         System.out.println("accepted new connection");
         try {
-            String endpoint = request.get("Endpoint");
-            switch (endpoint) {
-                case String s when Pattern
-                        .matches("/echo/[A-z0-9]*", s) -> {
-                    response.setBody(s.replaceAll("/echo/", ""), "text/plain");
-                }
-                case "/" -> {
-
-                }
-                case String s when Pattern.matches("/files/\\S*", s) -> {
-                    String method = request.get("Method");
-
-                    switch (method){
-                        case "GET" -> fileReader(s.replaceAll("/files/", ""));
-                        case "POST" -> fileWriter(s.replaceAll("/files/",""));
+            while (true) {
+                this.request = parseRequest();
+                String endpoint = request.get("Endpoint");
+                switch (endpoint) {
+                    case String s when Pattern
+                            .matches("/echo/[A-z0-9]*", s) -> {
+                        String body = s.replaceAll("/echo/", "");
+                        response.setBody(body, "text/plain", body.length());
                     }
+                    case "/" -> {
 
-                    return;
+                    }
+                    case String s when Pattern.matches("/files/\\S*", s) -> {
+                        String method = request.get("Method");
+                        switch (method) {
+                            case "GET" -> fileReader(s.replaceAll("/files/", ""));
+                            case "POST" -> fileWriter(s.replaceAll("/files/", ""));
+                        }
+                    }
+                    case "/user-agent" -> {
+                        String userAgent = request.get("User-Agent");
+                        response.setBody(userAgent, "text/plain", userAgent.length());
+                    }
+                    default -> {
+                        response.setHttpStatus("404 Not Found");
+                    }
                 }
-                case "/user-agent" -> {
-                    response.setBody(request.get("User-Agent"), "text/plain");
-                }
-                default -> {
-                    response.setHttpStatus("404 Not Found");
+
+                output.println(response);
+                if (request.getOrDefault("Connection","").equalsIgnoreCase("close")) {
+                    break;
                 }
             }
-
-            output.println(response);
-
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -110,26 +108,20 @@ public class ClientHandler implements Runnable {
         File file = new File(Path.of(settings.getSetting("directory"), fileName).toUri());
         String body = request.get("Body");
         int contentLength = Integer.parseInt(request.get("Content-Length"));
-        Files.writeString(file.toPath(), body.substring(0,contentLength));
+        Files.writeString(file.toPath(), body.substring(0, contentLength));
 
         response.setHttpStatus("201 Created");
-        output.println(response);
     }
 
     private void fileReader(String fileName) throws IOException {
         File file = new File(Path.of(settings.getSetting("directory"), fileName).toUri());
 
-        if (file.exists()) {
-            byte[] fileContent = Files.readAllBytes(file.toPath());
-            StringBuilder builder = response.getResponseHead();
-            builder.append("Content-Type: application/octet-stream").append("\r\n");
-            builder.append("Content-Length: ").append(fileContent.length).append("\r\n");
-            builder.append("\r\n");
-            builder.append(new String(fileContent));
-            output.println(builder);
-        } else {
+        if (!file.exists()) {
             response.setHttpStatus("404 Not Found");
-            output.println(response);
+            return;
         }
+        byte[] fileContent = Files.readAllBytes(file.toPath());
+        response.setHttpStatus("200 OK");
+        response.setBody(new String(fileContent), "application/octet-stream", fileContent.length);
     }
 }

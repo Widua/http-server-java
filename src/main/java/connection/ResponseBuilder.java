@@ -18,15 +18,12 @@ public class ResponseBuilder {
         this.httpStatus = httpStatus;
     }
 
-    public void setBody(String httpBody,String httpBodyType) {
+    public void setBody(String httpBody,String httpBodyType,Integer contentLength) {
         this.httpBody = httpBody;
         this.httpBodyType = httpBodyType;
-        prepareBodyHeaders();
-    }
 
-    private void prepareBodyHeaders() {
-        headers.put("Content-Type", httpBodyType);
-        headers.put("Content-Length", String.valueOf(httpBody.length()));
+        headers.put("Content-Type",httpBodyType);
+        headers.put("Content-Length",String.valueOf(contentLength));
     }
 
     @Override
