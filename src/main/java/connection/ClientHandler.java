@@ -57,7 +57,7 @@ public class ClientHandler implements Runnable {
                     }
                 }
 
-                output.println(response);
+                output.print(response);
                 if (request.getOrDefault("Connection","").equalsIgnoreCase("close")) {
                     break;
                 }
