@@ -10,8 +10,8 @@ public class ResponseBuilder {
     private final String HTTP_VERSION = "HTTP/1.1 ";
     private String httpBodyType;
 
-    public void setHeaders(Map<String, String> headers) {
-        this.headers = headers;
+    public void addHeader(String key, String value){
+        headers.put(key, value);
     }
 
     public void setHttpStatus(String httpStatus) {

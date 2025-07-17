@@ -29,11 +29,11 @@ public class ClientHandler implements Runnable {
                 BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
                 ) {
             while (!client.isClosed()) {
+                response = new ResponseBuilder();
                 this.request = parseRequest(input);
                 if (!request.containsKey("Endpoint")) {
                     break;
                 }
-                response = new ResponseBuilder();
                 String endpoint = request.get("Endpoint");
                 switch (endpoint) {
                     case String s when Pattern
@@ -62,7 +62,8 @@ public class ClientHandler implements Runnable {
                 output.write(response.toString());
                 output.flush();
                 if (request.getOrDefault("Connection", "").equalsIgnoreCase("close")) {
-                    break;
+                    client.close();
+                    return;
                 }
             }
         } catch (IOException e) {
@@ -98,6 +99,12 @@ public class ClientHandler implements Runnable {
             int read = input.read(requestBody,0,contentLength);
             request.put("Body",new String(requestBody,0,read));
         }
+
+        if (request.containsKey("Connection")){
+            String connectionHeader = request.get("Connection");
+            response.addHeader("Connection",connectionHeader);
+        }
+
         return request;
     }
 
