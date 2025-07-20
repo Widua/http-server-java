@@ -1,5 +1,6 @@
 package connection;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,9 +27,18 @@ public class ResponseBuilder {
         headers.put("Content-Length",String.valueOf(contentLength));
     }
 
-    public void setupCompression(String compression){
-        if (compression.equals("gzip")) {
-            headers.put("Content-Encoding", compression);
+    public void setupCompression(String[] compression){
+        final String[] supportedCompressionTypes = new String[]{"gzip"};
+
+        for (String s : compression) {
+            String stripped = s.strip();
+           if (Arrays.asList(supportedCompressionTypes).contains(stripped)){
+                if (headers.containsKey("Content-Encoding")){
+                    headers.computeIfPresent("Content-Encoding", (k, currEncoding) -> String.join(currEncoding, stripped));
+                } else {
+                    headers.put("Content-Encoding",stripped);
+                }
+           }
         }
     }
 

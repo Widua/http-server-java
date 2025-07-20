@@ -37,7 +37,7 @@ public class ClientHandler implements Runnable {
                 processRequest(request.get("Endpoint"));
 
                 if (request.containsKey("Accept-Encoding")){
-                    response.setupCompression(request.get("Accept-Encoding"));
+                    response.setupCompression(request.get("Accept-Encoding").split(","));
                 }
 
                 output.write(response.toString());
