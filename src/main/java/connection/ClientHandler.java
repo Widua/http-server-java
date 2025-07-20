@@ -6,7 +6,6 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -34,31 +33,13 @@ public class ClientHandler implements Runnable {
                 if (!request.containsKey("Endpoint")) {
                     break;
                 }
-                String endpoint = request.get("Endpoint");
-                switch (endpoint) {
-                    case String s when Pattern
-                            .matches("/echo/[A-z0-9]*", s) -> {
-                        String body = s.replaceAll("/echo/", "");
-                        response.setBody(body, "text/plain", body.length());
-                    }
-                    case "/" -> {
 
-                    }
-                    case String s when Pattern.matches("/files/\\S*", s) -> {
-                        String method = request.get("Method");
-                        switch (method) {
-                            case "GET" -> fileReader(s.replaceAll("/files/", ""));
-                            case "POST" -> fileWriter(s.replaceAll("/files/", ""));
-                        }
-                    }
-                    case "/user-agent" -> {
-                        String userAgent = request.get("User-Agent");
-                        response.setBody(userAgent, "text/plain", userAgent.length());
-                    }
-                    default -> {
-                        response.setHttpStatus("404 Not Found");
-                    }
+                processRequest(request.get("Endpoint"));
+
+                if (request.containsKey("Accept-Encoding")){
+                    response.setupCompression(request.get("Accept-Encoding"));
                 }
+
                 output.write(response.toString());
                 output.flush();
                 if (request.getOrDefault("Connection", "").equalsIgnoreCase("close")) {
@@ -127,5 +108,32 @@ public class ClientHandler implements Runnable {
         byte[] fileContent = Files.readAllBytes(file.toPath());
         response.setHttpStatus("200 OK");
         response.setBody(new String(fileContent), "application/octet-stream", fileContent.length);
+    }
+
+    private void processRequest(String endpoint) throws IOException {
+        switch (endpoint) {
+            case String s when Pattern
+                    .matches("/echo/[A-z0-9]*", s) -> {
+                String body = s.replaceAll("/echo/", "");
+                response.setBody(body, "text/plain", body.length());
+            }
+            case "/" -> {
+
+            }
+            case String s when Pattern.matches("/files/\\S*", s) -> {
+                String method = request.get("Method");
+                switch (method) {
+                    case "GET" -> fileReader(s.replaceAll("/files/", ""));
+                    case "POST" -> fileWriter(s.replaceAll("/files/", ""));
+                }
+            }
+            case "/user-agent" -> {
+                String userAgent = request.get("User-Agent");
+                response.setBody(userAgent, "text/plain", userAgent.length());
+            }
+            default -> {
+                response.setHttpStatus("404 Not Found");
+            }
+        }
     }
 }

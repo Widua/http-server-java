@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ResponseBuilder {
-    private Map<String, String> headers = new HashMap<>();
+    private final Map<String, String> headers = new HashMap<>();
     private String httpStatus = "200 OK";
     private String httpBody = "";
     private final String HTTP_VERSION = "HTTP/1.1 ";
@@ -24,6 +24,12 @@ public class ResponseBuilder {
 
         headers.put("Content-Type",httpBodyType);
         headers.put("Content-Length",String.valueOf(contentLength));
+    }
+
+    public void setupCompression(String compression){
+        if (compression.equals("gzip")) {
+            headers.put("Content-Encoding", compression);
+        }
     }
 
     @Override
