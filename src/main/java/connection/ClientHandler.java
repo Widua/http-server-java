@@ -38,10 +38,12 @@ public class ClientHandler implements Runnable {
 
                 if (request.containsKey("Accept-Encoding")){
                     response.setupCompression(request.get("Accept-Encoding").split(","));
+                    response.sendResponseWithCompressedBody(client.getOutputStream());
+                } else{
+                    output.write(response.toString());
+                    output.flush();
                 }
 
-                output.write(response.toString());
-                output.flush();
                 if (request.getOrDefault("Connection", "").equalsIgnoreCase("close")) {
                     client.close();
                     return;

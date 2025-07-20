@@ -1,8 +1,14 @@
 package connection;
 
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 public class ResponseBuilder {
     private final Map<String, String> headers = new HashMap<>();
@@ -39,6 +45,23 @@ public class ResponseBuilder {
                     headers.put("Content-Encoding",stripped);
                 }
            }
+        }
+    }
+
+    public void sendResponseWithCompressedBody(OutputStream output) throws IOException {
+        byte[] byteBody = httpBody.getBytes();
+        try(ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            GZIPOutputStream gzipStream = new GZIPOutputStream(baos);
+        ){
+            gzipStream.write(byteBody);
+            gzipStream.flush();
+            gzipStream.close();
+            byte[] compressedBody = baos.toByteArray();
+
+            headers.put("Content-Length",String.valueOf(compressedBody.length));
+            String head = getResponseHead().append("\r\n").toString();
+            output.write(head.getBytes());
+            output.write(compressedBody);
         }
     }
 
